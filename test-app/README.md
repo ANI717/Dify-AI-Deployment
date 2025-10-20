@@ -13,5 +13,5 @@ uv lock
 ```bash
 docker build -t test-app-image:latest -f Dockerfile .
 docker volume create tmp
-docker run --name test-app --read-only --mount type=volume,src=tmp,dst=/tmp --env-file .env -p 8080:8080 test-app-image:latest &
+docker run --name test-app --read-only --mount type=volume,src=tmp,dst=/tmp --env-file .env -p 8080:8080 test-app-image:latest
 ```
