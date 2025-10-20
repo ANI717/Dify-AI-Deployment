@@ -1,5 +1,5 @@
 # base image
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.11-slim-bullseye AS base
 
 WORKDIR /app/api
 
@@ -27,12 +27,12 @@ FROM base AS production
 ENV FLASK_APP=app.py
 ENV EDITION=SELF_HOSTED
 ENV DEPLOY_ENV=PRODUCTION
-ENV CONSOLE_API_URL=http://127.0.0.1:5001
-ENV CONSOLE_WEB_URL=http://127.0.0.1:3000
-ENV SERVICE_API_URL=http://127.0.0.1:5001
-ENV APP_WEB_URL=http://127.0.0.1:3000
+ENV CONSOLE_API_URL=http://127.0.0.1:8081
+ENV CONSOLE_WEB_URL=http://127.0.0.1:8080
+ENV SERVICE_API_URL=http://127.0.0.1:8081
+ENV APP_WEB_URL=http://127.0.0.1:8080
 
-EXPOSE 5001
+EXPOSE 8080
 
 # set timezone
 ENV TZ=UTC
@@ -51,7 +51,7 @@ RUN \
         # basic environment
         curl nodejs libgmp-dev libmpfr-dev libmpc-dev \
         # For Security
-        expat libldap-2.5-0 perl libsqlite3-0 zlib1g \
+        expat libldap-2.4-2 libldap2-dev perl libsqlite3-0 zlib1g \
         # install fonts to support the use of tools like pypdfium2
         fonts-noto-cjk \
         # install a package to improve the accuracy of guessing mime type and file extension
@@ -68,9 +68,6 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Download nltk data
 RUN python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
-
-ENV TIKTOKEN_CACHE_DIR=/app/api/.tiktoken_cache
-
 RUN python -c "import tiktoken; tiktoken.encoding_for_model('gpt2')"
 
 # Copy source code

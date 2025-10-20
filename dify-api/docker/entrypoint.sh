@@ -7,6 +7,22 @@ export LANG=${LANG:-en_US.UTF-8}
 export LC_ALL=${LC_ALL:-en_US.UTF-8}
 export PYTHONIOENCODING=${PYTHONIOENCODING:-utf-8}
 
+export TMPDIR=${TMPDIR:-/tmp}
+export XDG_CACHE_HOME=${TMPDIR}/.cache
+export PIP_CACHE_DIR=${TMPDIR}/pip
+export UV_CACHE_DIR=${TMPDIR}/uv
+export NLTK_DATA=${TMPDIR}/nltk_data
+export HUGGINGFACE_HUB_CACHE=${TMPDIR}/hf
+export HF_HOME=${TMPDIR}/hf
+export TRANSFORMERS_CACHE=${TMPDIR}/transformers
+export MPLCONFIGDIR=${TMPDIR}/mpl
+export PYTHONPYCACHEPREFIX=${TMPDIR}/__pycache__
+export TIKTOKEN_CACHE_DIR=${TMPDIR}/tiktoken
+export SQLALCHEMY_DATABASE_URI=sqlite:////${TMPDIR}/app.db
+export FLASK_INSTANCE_PATH=${TMPDIR}/flask-instance
+export UVICORN_WORKERS=1
+export PYTHONDONTWRITEBYTECODE=1
+
 if [[ "${MIGRATION_ENABLED}" == "true" ]]; then
   echo "Running migrations"
   flask upgrade-db
