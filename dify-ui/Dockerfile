@@ -59,13 +59,18 @@ COPY docker/entrypoint.sh ./entrypoint.sh
 
 # global runtime packages
 RUN pnpm add -g pm2 \
-    && mkdir /tmp/.pm2 \
-    && chown -R 1001:0 /tmp/.pm2 /app/web \
-    && chmod -R g=u /tmp/.pm2 /app/web
+    && mkdir -p /tmp/.pm2 /tmp/.cache/corepack /tmp/.cache/node \
+    && chown -R 1001:0 /tmp/.pm2 /tmp/.cache /app/web \
+    && chmod -R g=u /tmp/.pm2 /tmp/.cache /app/web \
+    && chown -R 1001:0 /tmp/pnpm \
+    && chmod -R a+rx /tmp/pnpm \
+    && chmod +x /app/web/entrypoint.sh \
+    && find /tmp/pnpm -name "pm2" -type f -exec chmod +x {} \;
+
 
 ARG COMMIT_SHA
 ENV COMMIT_SHA=${COMMIT_SHA}
 
 USER 1001
 EXPOSE 8080
-ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]
+ENTRYPOINT ["/bin/bash","./entrypoint.sh"]
