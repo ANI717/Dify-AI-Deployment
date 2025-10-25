@@ -1,7 +1,7 @@
 import psycopg2
 import os
 
-# Load environment variables if needed (optional if you want to reuse your .env)
+# Load environment variables if needed
 from dotenv import load_dotenv
 load_dotenv(".env")
 

@@ -29,5 +29,6 @@ psql -h localhost:5432 -U appuser -d appdb
 Test with Python
 ```bash
 pip install psycopg2-binary dotenv
-python .\test_postgres.py
+python .\test_with_psycopg2.py
+python .\test_with_sqlalchemy.py
 ```
