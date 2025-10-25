@@ -14,11 +14,11 @@ uv lock
 
 #### Create Volume
 ```bash
-docker volume create tmp
+docker volume create tmpapi
 ```
 
 #### Build & run (read-only root + writable /tmp + .env)
 ```bash
 docker build -t dify-api-image:latest -f Dockerfile .
-docker run -d --name dify-api --read-only --mount type=volume,src=tmp,dst=/tmp --env-file .env -p 5001:8080 dify-api-image:latest
+docker run -d --name dify-api --read-only -v tmpapi:/tmp --env-file .env -p 5001:8080 dify-api-image:latest
 ```
