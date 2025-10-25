@@ -12,9 +12,13 @@ pip install uv
 uv lock
 ```
 
+#### Create Volume
+```bash
+docker volume create tmp
+```
+
 #### Build & run (read-only root + writable /tmp + .env)
 ```bash
 docker build -t dify-api-image:latest -f Dockerfile .
-docker volume create tmp
-docker run --name dify-api --read-only --mount type=volume,src=tmp,dst=/tmp --env-file .env -p 8081:8080 dify-api-image:latest
+docker run -d --name dify-api --read-only --mount type=volume,src=tmp,dst=/tmp --env-file .env -p 5001:8080 dify-api-image:latest
 ```

@@ -1,18 +1,16 @@
-# base image
+# base image stage
 FROM python:3.11-slim-bullseye AS base
 
 WORKDIR /app/api
 
 # Install uv
 ENV UV_VERSION=0.8.9
-
 RUN pip install --no-cache-dir uv==${UV_VERSION}
 
 
-FROM base AS packages
 
-# if you located in China, you can use aliyun mirror to speed up
-# RUN sed -i 's@deb.debian.org@mirrors.aliyun.com@g' /etc/apt/sources.list.d/debian.sources
+# packages stage
+FROM base AS packages
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc g++ libc-dev libffi-dev libgmp-dev libmpfr-dev libmpc-dev
@@ -21,18 +19,22 @@ RUN apt-get update \
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
+
+
 # production stage
 FROM base AS production
 
+# Set environment variables
 ENV FLASK_APP=app.py
 ENV EDITION=SELF_HOSTED
 ENV DEPLOY_ENV=PRODUCTION
-ENV CONSOLE_API_URL=http://127.0.0.1:8081
+ENV CONSOLE_API_URL=http://127.0.0.1:5001
 ENV CONSOLE_WEB_URL=http://127.0.0.1:8080
-ENV SERVICE_API_URL=http://127.0.0.1:8081
+ENV SERVICE_API_URL=http://127.0.0.1:5001
 ENV APP_WEB_URL=http://127.0.0.1:8080
 
-EXPOSE 8080
+ENV DIFY_BIND_ADDRESS=0.0.0.0
+ENV DIFY_PORT=8080
 
 # set timezone
 ENV TZ=UTC
@@ -42,6 +44,10 @@ ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV PYTHONIOENCODING=utf-8
 
+# Expose port
+EXPOSE 8080
+
+# Set working directory
 WORKDIR /app/api
 
 RUN \
