@@ -1,6 +1,4 @@
-.env
-*.env.*
-
+# Ignore storage files
 storage/generate_files/*
 storage/privkeys/*
 storage/tools/*
@@ -15,5 +13,33 @@ logs
 .mypy_cache
 .ruff_cache
 
-# venv
-.venv
+
+# local env
+.venv/
+__pycache__/
+*.pyc
+
+# vcs
+.git
+.gitignore
+
+# tests/docs/configs for dev only
+tests/
+README.md
+.pytest_cache/
+.coverage
+htmlcov/
+
+# linters/type checkers
+.ruff.toml
+.importlinter
+pyrightconfig.json
+pytest.ini
+ty.toml
+
+# env & build
+.env
+*.env.*
+*.log
+Dockerfile
+docker-compose*.yml

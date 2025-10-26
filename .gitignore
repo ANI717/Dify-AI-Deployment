@@ -1,0 +1,6 @@
+*__pycache__*
+build/
+dist/
+.coverage
+*logfile.log*
+*.egg-info/

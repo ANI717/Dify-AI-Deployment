@@ -1,15 +1,16 @@
-# base image stage
+# ---------- Base Stage ----------
 FROM python:3.11-slim-bullseye AS base
 
+# Set working directory
 WORKDIR /app/api
 
 # Install uv
-ENV UV_VERSION=0.8.9
+ENV UV_VERSION=0.9.5
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir uv==${UV_VERSION}
 
 
-
-# packages stage
+# ---------- Packages Stage ----------
 FROM base AS packages
 
 RUN apt-get update \
@@ -20,14 +21,14 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
 
-
-# production stage
+# ---------- Production Stage ----------
 FROM base AS production
 
 # Set environment variables
 ENV FLASK_APP=app.py
 ENV EDITION=SELF_HOSTED
 ENV DEPLOY_ENV=PRODUCTION
+
 ENV CONSOLE_API_URL=http://127.0.0.1:5001
 ENV CONSOLE_WEB_URL=http://127.0.0.1:8080
 ENV SERVICE_API_URL=http://127.0.0.1:5001
@@ -36,26 +37,21 @@ ENV APP_WEB_URL=http://127.0.0.1:8080
 ENV DIFY_BIND_ADDRESS=0.0.0.0
 ENV DIFY_PORT=8080
 
-# set timezone
 ENV TZ=UTC
 
-# Set UTF-8 locale
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV PYTHONIOENCODING=utf-8
 
-# Expose port
-EXPOSE 8080
-
 # Set working directory
 WORKDIR /app/api
 
+# Install system dependencies
 RUN \
     apt-get update \
-    # Install dependencies
     && apt-get install -y --no-install-recommends \
         # basic environment
-        curl nodejs libgmp-dev libmpfr-dev libmpc-dev \
+        curl libgmp-dev libmpfr-dev libmpc-dev \
         # For Security
         expat libldap-2.4-2 libldap2-dev perl libsqlite3-0 zlib1g \
         # install fonts to support the use of tools like pypdfium2
@@ -65,6 +61,7 @@ RUN \
         # install libmagic to support the use of python-magic guess MIMETYPE
         libmagic1 \
     && apt-get autoremove -y \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python environment and packages
@@ -72,9 +69,9 @@ ENV VIRTUAL_ENV=/app/api/.venv
 COPY --from=packages ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-# Download nltk data
-RUN python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
-RUN python -c "import tiktoken; tiktoken.encoding_for_model('gpt2')"
+# copy vendored NLTK data
+COPY nltk_data /usr/local/share/nltk_data
+ENV NLTK_DATA=/usr/local/share/nltk_data
 
 # Copy source code
 COPY . /app/api/
@@ -86,4 +83,8 @@ RUN chmod +x /entrypoint.sh
 ARG COMMIT_SHA
 ENV COMMIT_SHA=${COMMIT_SHA}
 
+# Expose port
+EXPOSE 8080
+
+# Set entrypoint
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
