@@ -17,7 +17,7 @@ python -m uv sync
 
 #### Create Volume
 ```bash
-docker volume create volume-api
+docker volume create dify-api-volume
 ```
 
 #### Remove Previous Leftovers
@@ -32,7 +32,7 @@ docker build -t dify-api-image:latest -f Dockerfile .
 
 #### Run Container
 ```bash
-docker run -d --name dify-api --read-only -v volume-api:/tmp --env-file .env -p 5001:8080 dify-api-image:latest
+docker run -d --name dify-api --read-only -v dify-api-volume:/tmp --env-file .env -p 5001:8080 dify-api-image:latest
 ```
 
 ## Packages
