@@ -1,13 +1,22 @@
 # Dify API
 Reference: https://github.com/langgenius/dify/tree/main/web
 
-#### Create Volume
+#### Remove Previous Leftovers
 ```bash
-docker volume create tmpui
+docker rm -f dify-ui
 ```
 
-#### Build & run (read-only root + writable /tmp + .env)
+#### Create Volume
+```bash
+docker volume create dify-ui-volume
+```
+
+#### Build Image
 ```bash
 docker build -t dify-ui-image:latest -f Dockerfile .
-docker run -d --name dify-ui --read-only -v tmpui:/tmp --env-file .env -p 8888:8080 dify-ui-image:latest
+```
+
+### Run Container
+```bash
+docker run -d --name dify-ui --read-only -v dify-ui-volume:/tmp --env-file .env -p 8888:8080 dify-ui-image:latest
 ```
