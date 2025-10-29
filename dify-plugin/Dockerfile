@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM golang:1.23-alpine AS builder
 
 ARG VERSION=unknown
@@ -41,9 +40,6 @@ RUN set -ex && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# preload tiktoken
-ENV TIKTOKEN_CACHE_DIR=/tmp/.tiktoken
-
 # Install dify_plugin to speedup the environment setup, test uv and preload tiktoken
 RUN set -ex && \
     rm -f /usr/lib/python*/EXTERNALLY-MANAGED && \
@@ -55,6 +51,12 @@ RUN set -ex && \
 ENV UV_PATH=/usr/local/bin/uv
 ENV PLATFORM=$PLATFORM
 ENV GIN_MODE=release
+ENV PLUGIN_REMOTE_INSTALLING_ENABLED=false
+
+# Plugin configuration for local platform
+ENV PLUGIN_WORKING_PATH=/tmp/plugins
+ENV PLUGIN_INSTALLED_PATH=/tmp/plugins/installed
+ENV PLUGIN_PACKAGE_CACHE_PATH=/tmp/plugins/packages
 
 # Configure Python to install packages in /tmp for runtime installations
 ENV PYTHONPATH=""
@@ -62,14 +64,26 @@ ENV PYTHONUSERBASE=/tmp/python-packages
 ENV PIP_USER=1
 ENV PYTHONPATH=/tmp/python-packages/lib/python3.12/site-packages:$PYTHONPATH
 
+# Create a non-root user
+RUN groupadd -r dify && useradd -r -g dify -u 1001 dify
+
 # Create necessary directories in tmp for write access
-RUN mkdir -p /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages && \
-    chmod -R 755 /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages
+RUN mkdir -p /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
+    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages && \
+    chmod -R 755 /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
+    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
 
 COPY --from=builder /app/main /app/entrypoint.sh /app/
 
+# Set ownership of the application files and directories to the dify user
+RUN chown -R dify:dify /app /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
+    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
+
 # Change working directory to /tmp so the app creates storage there
 WORKDIR /tmp
+
+# Switch to non-root user
+USER dify
 
 # run the server, using sh as the entrypoint to avoid process being the root process
 # and using bash to recycle resources
