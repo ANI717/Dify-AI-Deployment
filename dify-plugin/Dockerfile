@@ -1,62 +1,80 @@
+# syntax=docker/dockerfile:1
 FROM golang:1.23-alpine AS builder
 
 ARG VERSION=unknown
 
-# Install ca-certificates and timezone data for final stage
-RUN apk add --no-cache ca-certificates tzdata
+# copy project
+COPY . /app
 
-# Set working directory
+# set working directory
 WORKDIR /app
 
-# Copy go mod files first for better caching
-COPY go.mod go.sum ./
-RUN go mod download
+# using goproxy if you have network issues
+# ENV GOPROXY=https://goproxy.cn,direct
 
-# Copy project files
-COPY . .
-
-# Build with optimizations and security flags
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# build
+RUN go build \
     -ldflags "\
-    -s -w \
     -X 'github.com/langgenius/dify-plugin-daemon/internal/manifest.VersionX=${VERSION}' \
     -X 'github.com/langgenius/dify-plugin-daemon/internal/manifest.BuildTimeX=$(date -u +%Y-%m-%dT%H:%M:%S%z)'" \
     -o /app/main cmd/server/main.go
 
-# Use Alpine for better permission handling with mounted volumes
-FROM alpine:3.20
+# copy entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Install ca-certificates for SSL/TLS
-RUN apk add --no-cache ca-certificates tzdata
+FROM ubuntu:24.04
 
-# Create non-root user with specific UID/GID for consistency
-RUN addgroup -g 1000 appgroup && \
-    adduser -D -u 1000 -G appgroup appuser
-
-# Set working directory
 WORKDIR /app
 
-# Create storage directory in tmp with proper permissions
-RUN mkdir -p /tmp/storage && \
-    chown -R appuser:appgroup /app /tmp/storage && \
-    chmod -R 755 /app && \
-    chmod -R 755 /tmp/storage
+# check build args
+ARG PLATFORM=local
 
-# Build args and environment
-ARG PLATFORM=serverless
+# Install python3.12 if PLATFORM is local
+RUN <<EOF bash
+
+set -ex
+set -o pipefail
+trap 'echo "Exit status $? at line $LINENO from: $BASH_COMMAND"' ERR
+
+apt-get update
+
+DEBIAN_FRONTEND=noninteractive apt-get install -y curl python3.12 \
+    python3.12-venv python3.12-dev python3-pip ffmpeg \
+    build-essential git \
+    cmake pkg-config \
+    libcairo2-dev libjpeg-dev libgif-dev
+
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1;
+EOF
+
+# preload tiktoken
+ENV TIKTOKEN_CACHE_DIR=/app/.tiktoken
+
+# Install dify_plugin to speedup the environment setup, test uv and preload tiktoken
+RUN <<EOF bash
+
+set -ex
+set -o pipefail
+trap 'echo "Exit status $? at line $LINENO from: $BASH_COMMAND"' ERR
+
+mv /usr/lib/python3.12/EXTERNALLY-MANAGED /usr/lib/python3.12/EXTERNALLY-MANAGED.bk
+python3 -m pip install uv
+uv pip install --system dify_plugin
+
+python3 -c "from uv._find_uv import find_uv_bin;print(find_uv_bin());"
+
+python3 -c "import tiktoken; encodings = ['o200k_base', 'cl100k_base', 'p50k_base', 'r50k_base', 'p50k_edit', 'gpt2']; [tiktoken.get_encoding(encoding).special_tokens_set for encoding in encodings]"
+EOF
+
+ENV UV_PATH=/usr/local/bin/uv
 ENV PLATFORM=$PLATFORM
 ENV GIN_MODE=release
-ENV TZ=UTC
 
-# Copy binary with proper ownership
-COPY --from=builder --chown=appuser:appgroup /app/main /app/main
+COPY --from=builder /app/main /app/entrypoint.sh /app/
 
-# Run as non-root user
-USER appuser
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["./main", "health"] || exit 1
-
-# Run the server
-ENTRYPOINT ["/app/main"]
+# run the server, using sh as the entrypoint to avoid process being the root process
+# and using bash to recycle resources
+CMD ["/bin/bash", "-c", "/app/entrypoint.sh"]
