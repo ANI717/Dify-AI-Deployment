@@ -1,83 +1,62 @@
-# syntax=docker/dockerfile:1
-FROM python:3.12-slim-bullseye AS builder
+FROM golang:1.23-alpine AS builder
 
 ARG VERSION=unknown
-ARG GO_VERSION=1.23.2
 
-# Install Go in builder stage
-RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tgz && \
-    tar -C /usr/local -xzf /tmp/go.tgz && \
-    rm /tmp/go.tgz && \
-    apt-get remove -y curl && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
+# Install ca-certificates and timezone data for final stage
+RUN apk add --no-cache ca-certificates tzdata
 
-ENV PATH="/usr/local/go/bin:${PATH}"
-
-# copy project
-COPY . /app
-
-# set working directory
+# Set working directory
 WORKDIR /app
 
-# using goproxy if you have network issues
-# ENV GOPROXY=https://goproxy.cn,direct
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
 
-# build
-RUN /usr/local/go/bin/go build \
+# Copy project files
+COPY . .
+
+# Build with optimizations and security flags
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags "\
+    -s -w \
     -X 'github.com/langgenius/dify-plugin-daemon/internal/manifest.VersionX=${VERSION}' \
     -X 'github.com/langgenius/dify-plugin-daemon/internal/manifest.BuildTimeX=$(date -u +%Y-%m-%dT%H:%M:%S%z)'" \
     -o /app/main cmd/server/main.go
 
-# copy entrypoint.sh
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Use Alpine for better permission handling with mounted volumes
+FROM alpine:3.20
 
-FROM python:3.12-slim-bullseye
+# Install ca-certificates for SSL/TLS
+RUN apk add --no-cache ca-certificates tzdata
 
+# Create non-root user with specific UID/GID for consistency
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup appuser
+
+# Set working directory
 WORKDIR /app
 
-# check build args
-ARG PLATFORM=local
+# Create storage directory in tmp with proper permissions
+RUN mkdir -p /tmp/storage && \
+    chown -R appuser:appgroup /app /tmp/storage && \
+    chmod -R 755 /app && \
+    chmod -R 755 /tmp/storage
 
-# Install additional packages for Python dependencies
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    curl ffmpeg build-essential git cmake pkg-config \
-    libcairo2-dev libjpeg-dev libgif-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Configure all caches and writable directories to use /tmp
-ENV TIKTOKEN_CACHE_DIR=/tmp/.tiktoken \
-    XDG_CACHE_HOME=/tmp/.cache \
-    PIP_CACHE_DIR=/tmp/pip-cache \
-    PYTHONPYCACHEPREFIX=/tmp/pycache \
-    TMPDIR=/tmp \
-    HOME=/tmp \
-    VIRTUAL_ENV=/tmp/venv
-
-# Install dify_plugin to speedup the environment setup, test uv and preload tiktoken
-RUN python3 -m pip install uv && \
-    uv pip install --system dify_plugin && \
-    python3 -c "from uv._find_uv import find_uv_bin;print(find_uv_bin());" && \
-    python3 -c "import tiktoken; encodings = ['o200k_base', 'cl100k_base', 'p50k_base', 'r50k_base', 'p50k_edit', 'gpt2']; [tiktoken.get_encoding(encoding).special_tokens_set for encoding in encodings]"
-
-ENV UV_PATH=/usr/local/bin/uv
+# Build args and environment
+ARG PLATFORM=serverless
 ENV PLATFORM=$PLATFORM
 ENV GIN_MODE=release
+ENV TZ=UTC
 
-# Expose the application port
-EXPOSE 5002
+# Copy binary with proper ownership
+COPY --from=builder --chown=appuser:appgroup /app/main /app/main
 
-# Declare /tmp as a writable volume
-VOLUME ["/tmp"]
+# Run as non-root user
+USER appuser
 
-COPY --from=builder /app/main /app/entrypoint.sh /app/
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["./main", "health"] || exit 1
 
-# run the server, using sh as the entrypoint to avoid process being the root process
-# and using bash to recycle resources
-CMD ["/bin/bash", "-c", "/app/entrypoint.sh"]
+# Run the server
+ENTRYPOINT ["/app/main"]
