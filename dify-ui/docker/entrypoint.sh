@@ -12,15 +12,6 @@
 
 set -e
 
-# Set cache directories to writable locations for read-only containers
-export COREPACK_HOME=/tmp/.cache/corepack
-export PNPM_HOME=/tmp/pnpm
-export PATH="$PNPM_HOME:$PATH"
-export PM2_HOME=/tmp/.pm2
-
-# Create necessary directories
-mkdir -p /tmp/.cache/corepack /tmp/.cache/node /tmp/pnpm /tmp/.pm2
-
 export NEXT_PUBLIC_DEPLOY_ENV=${DEPLOY_ENV}
 export NEXT_PUBLIC_EDITION=${EDITION}
 export NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
@@ -48,8 +39,6 @@ export NEXT_PUBLIC_MAX_PARALLEL_LIMIT=${MAX_PARALLEL_LIMIT}
 export NEXT_PUBLIC_MAX_ITERATIONS_NUM=${MAX_ITERATIONS_NUM}
 export NEXT_PUBLIC_MAX_TREE_DEPTH=${MAX_TREE_DEPTH}
 
-# Find and use PM2 directly to avoid corepack/pnpm issues in read-only containers
-PM2_BIN=$(find /tmp/pnpm -name "pm2" -type f 2>/dev/null | head -1)
 if [ -n "$PM2_BIN" ] && [ -x "$PM2_BIN" ]; then
     exec "$PM2_BIN" start /app/web/server.js --name dify-web --cwd /app/web -i ${PM2_INSTANCES} --no-daemon
 else

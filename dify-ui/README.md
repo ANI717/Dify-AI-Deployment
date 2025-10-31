@@ -18,5 +18,5 @@ docker build -t dify-ui-image:latest -f Dockerfile .
 
 ### Run Container
 ```bash
-docker run -d --name dify-ui --read-only -v dify-ui-volume:/tmp --env-file .env -p 8888:8080 dify-ui-image:latest
+docker run -d --name dify-ui --read-only -v dify-ui-volume:/tmp --env-file .env -p 3000:3000 dify-ui-image:latest
 ```

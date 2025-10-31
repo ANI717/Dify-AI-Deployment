@@ -1,14 +1,17 @@
-# base image
+# ---------- Base Stage ----------
 FROM node:22-slim AS base
 
 RUN apt-get install -y tzdata
+RUN COREPACK_HOME="/tmp/.cache/corepack"
 RUN corepack enable
 ENV PNPM_HOME="/tmp/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV PM2_HOME="/tmp/.pm2"
 ENV NEXT_PUBLIC_BASE_PATH=
+ENV NEXT_PUBLIC_DEPLOY_ENV=PRODUCTION
 
 
-# install packages
+# ---------- Packages Stage ----------
 FROM base AS packages
 
 WORKDIR /app/web
@@ -31,17 +34,17 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm build:docker
 
 
-# production stage
+# ---------- Production Stage ----------
 FROM base AS production
 
 ENV NODE_ENV=production
 ENV EDITION=SELF_HOSTED
 ENV DEPLOY_ENV=PRODUCTION
-ENV CONSOLE_API_URL=http://127.0.0.1:8080
-ENV APP_API_URL=http://127.0.0.1:8081
+ENV CONSOLE_API_URL=http://127.0.0.1:5001
+ENV APP_API_URL=http://127.0.0.1:5001
 ENV MARKETPLACE_API_URL=https://marketplace.dify.ai
 ENV MARKETPLACE_URL=https://marketplace.dify.ai
-ENV PORT=8080
+ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PM2_INSTANCES=2
 
@@ -67,10 +70,9 @@ RUN pnpm add -g pm2 \
     && chmod +x /app/web/entrypoint.sh \
     && find /tmp/pnpm -name "pm2" -type f -exec chmod +x {} \;
 
-
 ARG COMMIT_SHA
 ENV COMMIT_SHA=${COMMIT_SHA}
 
 USER 1001
-EXPOSE 8080
+EXPOSE 3000
 ENTRYPOINT ["/bin/bash","./entrypoint.sh"]
