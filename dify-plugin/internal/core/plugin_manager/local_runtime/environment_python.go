@@ -132,7 +132,7 @@ func (p *LocalPluginRuntime) InitPythonEnvironment() error {
 
 	virtualEnvPath := path.Join(p.State.WorkingPath, ".venv")
 	cmd = exec.CommandContext(ctx, uvPath, args...)
-	cmd.Env = append(cmd.Env, "VIRTUAL_ENV="+virtualEnvPath, "PATH="+os.Getenv("PATH"))
+	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+virtualEnvPath)
 	if p.HttpProxy != "" {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("HTTP_PROXY=%s", p.HttpProxy))
 	}

@@ -49,6 +49,9 @@ RUN set -ex && \
     python3 -c "import tiktoken; encodings = ['o200k_base', 'cl100k_base', 'p50k_base', 'r50k_base', 'p50k_edit', 'gpt2']; [tiktoken.get_encoding(encoding).special_tokens_set for encoding in encodings]"
 
 ENV UV_PATH=/usr/local/bin/uv
+ENV UV_CACHE_DIR=/tmp/uv-cache
+ENV XDG_CACHE_HOME=/tmp/.cache
+ENV HOME=/tmp
 ENV PLATFORM=$PLATFORM
 ENV GIN_MODE=release
 ENV PLUGIN_REMOTE_INSTALLING_ENABLED=false
@@ -69,15 +72,15 @@ RUN groupadd -r dify && useradd -r -g dify -u 1001 dify
 
 # Create necessary directories in tmp for write access
 RUN mkdir -p /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
-    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages && \
-    chmod -R 755 /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
-    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
+    /tmp/.cache /tmp/uv-cache /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages && \
+    chmod -R 755 /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages  \
+    /tmp/.cache /tmp/uv-cache /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
 
 COPY --from=builder /app/main /app/entrypoint.sh /app/
 
 # Set ownership of the application files and directories to the dify user
 RUN chown -R dify:dify /app /tmp/.tiktoken /tmp/storage /tmp/logs /tmp/python-packages \
-    /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
+    /tmp/.cache /tmp/uv-cache /tmp/plugins /tmp/plugins/installed /tmp/plugins/packages
 
 # Change working directory to /tmp so the app creates storage there
 WORKDIR /tmp
